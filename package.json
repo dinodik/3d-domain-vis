@@ -2,14 +2,24 @@
   "name": "site",
   "version": "1.0.0",
   "description": "",
-  "main": "index.js",
+  "main": "src/main.mts",
+  "private": true,
   "scripts": {
+    "build": "npx webpack && cp src/index.html dist/index.html && cp src/styles.css dist/styles.css",
+    "watch": "npx webpack -w",
+    "clean": "rm -r dist/ node_modules/",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "author": "",
   "license": "MIT",
   "devDependencies": {
-    "@types/desmos": "^1.6.3",
-    "typescript": "^5.5.3"
+    "esbuild": "^0.23.0",
+    "ts-loader": "^9.5.1",
+    "typescript": "^5.5.3",
+    "webpack": "^5.93.0",
+    "webpack-cli": "^5.1.4"
+  },
+  "dependencies": {
+    "gl-matrix": "^3.4.3"
   }
 }
