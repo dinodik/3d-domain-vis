@@ -45,16 +45,19 @@ function main(): void {
 
     const vsSource = `
         attribute vec4 aVertexPosition;
-        attribute vec4 aVertexColour;
+        attribute vec3 aVertexNormal;
 
         uniform mat4 uModelViewMatrix;
         uniform mat4 uProjectionMatrix;
+        uniform mat4 uNormalMatrix;
 
         varying lowp vec4 vColour;
 
         void main() {
             gl_Position = uProjectionMatrix * uModelViewMatrix * aVertexPosition;
-            vColour = aVertexColour;
+
+            highp vec4 transformedNormal = uNormalMatrix * vec4(aVertexNormal, 1.0);
+            vColour = transformedNormal;
         }
     `;
 
@@ -70,11 +73,13 @@ function main(): void {
         program: shaderProgram,
         attribLocations: {
             vertexPosition: gl.getAttribLocation(shaderProgram, "aVertexPosition"),
-            vertexColour: gl.getAttribLocation(shaderProgram, "aVertexColour"),
+            // vertexColour: gl.getAttribLocation(shaderProgram, "aVertexColour"),
+            vertexNormal: gl.getAttribLocation(shaderProgram, "aVertexNormal"),
         },
         uniformLocations: {
             projectionMatrix: gl.getUniformLocation(shaderProgram, "uProjectionMatrix"),
             modelViewMatrix: gl.getUniformLocation(shaderProgram, "uModelViewMatrix"),
+            normalMatrix: gl.getUniformLocation(shaderProgram, "uNormalMatrix"),
         },
     };
 

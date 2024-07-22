@@ -5,8 +5,8 @@ function initPositionBuffer(gl: WebGLRenderingContext): WebGLBuffer {
         throw new Error("Failed to create position buffer");
     gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
     const positions = [
-        1, 1, 1, 1, -1, 1, -1, -1, 1, -1, 1, 1, // top
-        -1, 1, -1, 1, 1, -1, 1, -1, -1, -1, -1, -1 // bottom
+        1, 1, 1, 1, -1, 1, -1, -1, 1, -1, 1, 1, // front
+        -1, 1, -1, 1, 1, -1, 1, -1, -1, -1, -1, -1 // back
     ];
     gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(positions), gl.STATIC_DRAW);
     return positionBuffer;
@@ -31,7 +31,7 @@ function initColourBuffer(gl: WebGLRenderingContext): WebGLBuffer {
     return colourBuffer;
 }
 
-function initIndexBuffer(gl: WebGLRenderingContext) {
+function initIndexBuffer(gl: WebGLRenderingContext): WebGLBuffer {
     const indices = [
         0, 2, 1, 0, 3, 2, // +z
         4, 5, 6, 4, 6, 7, // -z
@@ -48,14 +48,29 @@ function initIndexBuffer(gl: WebGLRenderingContext) {
     return indexBuffer;
 }
 
+function initNormalBuffer(gl: WebGLRenderingContext): WebGLBuffer {
+    const normals = [
+        0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1, // front
+        0, 0, -1, 0, 0, -1, 0, 0, -1, 0, 0, -1 // back
+    ];
+    const normalBuffer = gl.createBuffer();
+    if (!normalBuffer)
+        throw new Error("Failed to create normal buffer");
+    gl.bindBuffer(gl.ARRAY_BUFFER, normalBuffer);
+    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(normals), gl.STATIC_DRAW);
+    return normalBuffer;
+}
+
 function initBuffers(gl: WebGLRenderingContext) {
     const positionBuffer = initPositionBuffer(gl);
-    const colourBuffer = initColourBuffer(gl);
+    // const colourBuffer = initColourBuffer(gl);
     const indexBuffer = initIndexBuffer(gl);
+    const normalBuffer = initNormalBuffer(gl);
     return {
         position: positionBuffer,
-        colour: colourBuffer,
+        // colour: colourBuffer,
         indices: indexBuffer,
+        normal: normalBuffer,
     };
 }
 

@@ -30,9 +30,14 @@ function drawScene(gl: WebGLRenderingContext, programInfo: any, buffers: any, sq
         [1, 1, 1],
     )
 
+    const normalMatrix = mat4.create();
+    mat4.invert(normalMatrix, modelViewMatrix);
+    mat4.transpose(normalMatrix, normalMatrix);
+
     // use positions from buffer to create vertexPosition attrib
     setPositionAttribute(gl, buffers, programInfo);
-    setColourAttribute(gl, buffers, programInfo);
+    // setColourAttribute(gl, buffers, programInfo);
+    setNormalAttribute(gl, buffers, programInfo);
 
     gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, buffers.indices);
     gl.useProgram(programInfo.program)
@@ -47,6 +52,11 @@ function drawScene(gl: WebGLRenderingContext, programInfo: any, buffers: any, sq
         programInfo.uniformLocations.modelViewMatrix,
         false,
         modelViewMatrix,
+    );
+    gl.uniformMatrix4fv(
+        programInfo.uniformLocations.normalMatrix,
+        false,
+        normalMatrix,
     );
 
     const vertexCount = 36;
@@ -89,6 +99,24 @@ function setColourAttribute(gl: WebGLRenderingContext, buffers: any, programInfo
         offset,
     );
     gl.enableVertexAttribArray(programInfo.attribLocations.vertexColour);
+}
+
+function setNormalAttribute(gl: WebGLRenderingContext, buffers: any, programInfo: any) {
+    const numComponents = 3;
+    const type = gl.FLOAT;
+    const normalise = false;
+    const stride = 0;
+    const offset = 0;
+    gl.bindBuffer(gl.ARRAY_BUFFER, buffers.normal);
+    gl.vertexAttribPointer(
+        programInfo.attribLocations.vertexNormal,
+        numComponents,
+        type,
+        normalise,
+        stride,
+        offset,
+    );
+    gl.enableVertexAttribArray(programInfo.attribLocations.vertexNormal);
 }
 
 export { drawScene };
