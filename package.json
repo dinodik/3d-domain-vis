@@ -3,6 +3,7 @@
   "version": "1.0.0",
   "description": "",
   "main": "src/main.ts",
+  "type": "module",
   "private": true,
   "scripts": {
     "build": "npx esbuild src/main.ts --bundle --outfile=dist/bundle.js && cp src/index.html dist/index.html && cp src/styles.css dist/styles.css",

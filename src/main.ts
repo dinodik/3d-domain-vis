@@ -35,6 +35,8 @@ function initShaderProgram(gl: WebGLRenderingContext, vsSource: string, fsSource
 
 function main(): void {
     const canvas = document.getElementById("canvas") as HTMLCanvasElement;
+    canvas.width = canvas.clientWidth;
+    canvas.height = canvas.clientHeight;
     const gl = canvas.getContext("webgl");
 
     if (gl == null) {
@@ -43,16 +45,23 @@ function main(): void {
 
     const vsSource = `
         attribute vec4 aVertexPosition;
+        attribute vec4 aVertexColour;
+
         uniform mat4 uModelViewMatrix;
         uniform mat4 uProjectionMatrix;
+
+        varying lowp vec4 vColour;
+
         void main() {
-        gl_Position = uProjectionMatrix * uModelViewMatrix * aVertexPosition;
+            gl_Position = uProjectionMatrix * uModelViewMatrix * aVertexPosition;
+            vColour = aVertexColour;
         }
     `;
 
     const fsSource = `
+        varying lowp vec4 vColour;
         void main() {
-            gl_FragColor = vec4(1.0, 1.0, 1.0, 1.0);
+            gl_FragColor = vColour;
         }
     `;
 
@@ -61,6 +70,7 @@ function main(): void {
         program: shaderProgram,
         attribLocations: {
             vertexPosition: gl.getAttribLocation(shaderProgram, "aVertexPosition"),
+            vertexColour: gl.getAttribLocation(shaderProgram, "aVertexColour"),
         },
         uniformLocations: {
             projectionMatrix: gl.getUniformLocation(shaderProgram, "uProjectionMatrix"),
@@ -68,9 +78,19 @@ function main(): void {
         },
     };
 
-    // gl.clearColor(0.0, 0.0, 0.0, 1.0);
-    // gl.clear(gl.COLOR_BUFFER_BIT);
-
     const buffers = initBuffers(gl);
-    drawScene(gl, programInfo, buffers);
+
+    let squareRotation = 0;
+    let deltaTime = 0;
+    let then = 0;
+    function render(now: number) {
+        now *= 0.001; // ms to s
+        deltaTime = now - then;
+        then = now;
+
+        drawScene(gl as WebGLRenderingContext, programInfo, buffers, squareRotation);
+        squareRotation += deltaTime;
+        requestAnimationFrame(render);
+    }
+    requestAnimationFrame(render);
 }

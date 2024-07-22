@@ -1,6 +1,6 @@
-import * as glMatrix from "gl-matrix"
+import { mat4 } from "gl-matrix"
 
-function drawScene(gl: WebGLRenderingContext, programInfo: any, buffers: any) {
+function drawScene(gl: WebGLRenderingContext, programInfo: any, buffers: any, squareRotation: number) {
     gl.clearColor(0.0, 0.0, 0.0, 1.0);
     gl.clearDepth(1.0);
     gl.enable(gl.DEPTH_TEST);
@@ -12,20 +12,29 @@ function drawScene(gl: WebGLRenderingContext, programInfo: any, buffers: any) {
     const aspect = gl.canvas.width / gl.canvas.height;
     const zNear = 0.1;
     const zFar = 100.0;
-    const projectionMatrix = glMatrix.mat4.create();
-    glMatrix.mat4.perspective(projectionMatrix, fieldOfView, aspect, zNear, zFar);
+    const projectionMatrix = mat4.create();
+    mat4.perspective(projectionMatrix, fieldOfView, aspect, zNear, zFar);
 
     // create model view matrix
-    const modelViewMatrix = glMatrix.mat4.create();
-    glMatrix.mat4.translate(
+    const modelViewMatrix = mat4.create();
+    mat4.translate(
         modelViewMatrix,
         modelViewMatrix,
         [0.0, 0.0, -6.0],
     );
 
+    mat4.rotate(
+        modelViewMatrix,
+        modelViewMatrix,
+        squareRotation,
+        [1, 1, 1],
+    )
+
     // use positions from buffer to create vertexPosition attrib
     setPositionAttribute(gl, buffers, programInfo);
+    setColourAttribute(gl, buffers, programInfo);
 
+    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, buffers.indices);
     gl.useProgram(programInfo.program)
 
     // set shader uniforms
@@ -40,13 +49,14 @@ function drawScene(gl: WebGLRenderingContext, programInfo: any, buffers: any) {
         modelViewMatrix,
     );
 
+    const vertexCount = 36;
+    const type = gl.UNSIGNED_SHORT;
     const offset = 0;
-    const vertexCount = 4;
-    gl.drawArrays(gl.TRIANGLE_STRIP, offset, vertexCount);
+    gl.drawElements(gl.TRIANGLES, vertexCount, type, offset);
 }
 
 function setPositionAttribute(gl: WebGLRenderingContext, buffers: any, programInfo: any) {
-    const numComponents = 2;
+    const numComponents = 3;
     const type = gl.FLOAT;
     const normalise = false;
     const stride = 0;
@@ -61,6 +71,24 @@ function setPositionAttribute(gl: WebGLRenderingContext, buffers: any, programIn
         offset,
     );
     gl.enableVertexAttribArray(programInfo.attribLocations.vertexPosition);
+}
+
+function setColourAttribute(gl: WebGLRenderingContext, buffers: any, programInfo: any) {
+    const numComponents = 4;
+    const type = gl.FLOAT;
+    const normalise = false;
+    const stride = 0;
+    const offset = 0;
+    gl.bindBuffer(gl.ARRAY_BUFFER, buffers.colour);
+    gl.vertexAttribPointer(
+        programInfo.attribLocations.vertexColour,
+        numComponents,
+        type,
+        normalise,
+        stride,
+        offset,
+    );
+    gl.enableVertexAttribArray(programInfo.attribLocations.vertexColour);
 }
 
 export { drawScene };

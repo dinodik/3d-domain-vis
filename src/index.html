@@ -3,10 +3,11 @@
     <head>
         <title>Canvas Testing</title>
         <link rel="stylesheet" href="styles.css">
+        <link rel="shortcut icon" href="#"> <!-- favicon error fix https://stackoverflow.com/questions/31075893/ -->
+        <script>0</script> <!-- FOUC fix https://stackoverflow.com/questions/21147149/ -->
     </head>
     <body>
-        <canvas id="canvas" width=400px height=400px style="border:1px solid #000000"></canvas>
-        <script src="bundle.js" type="module"></script>
-        <!-- <script>var exports = {}; require = {};</script> -->
+        <canvas id="canvas" style="border:1px solid #000000"></canvas>
+        <script src="bundle.js"></script>
     </body>
 </html>
