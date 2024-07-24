@@ -14,10 +14,11 @@
   "author": "",
   "license": "MIT",
   "devDependencies": {
+    "@types/three": "^0.166.0",
     "esbuild": "^0.23.0",
     "typescript": "^5.5.3"
   },
   "dependencies": {
-    "gl-matrix": "^3.4.3"
+    "three": "^0.166.1"
   }
 }
