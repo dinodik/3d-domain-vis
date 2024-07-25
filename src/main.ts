@@ -1,6 +1,8 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 
+// calcuate domain values first then just pass into functions
+
 let [width, height] = [400, 300];
 const scene = new THREE.Scene();
 const renderer = new THREE.WebGLRenderer();
@@ -9,81 +11,147 @@ const controls = new OrbitControls(camera, renderer.domElement);
 renderer.setSize(width*2, height*2);
 document.body.appendChild(renderer.domElement);
 
-function f(x: number, z: number, out: THREE.Vector3): void {
-    const y =  Math.cos(Math.sqrt(x**2 + z**2)) + 2;
-    out.set(x, y, z);
+function f(x: number, z: number): number {
+    return Math.cos(Math.sqrt(x**2 + z**2)) + 2;
 }
 
-function g(x: number, z: number, out: THREE.Vector3): void {
-    const y = 0.1*(x**2 + z**2);
-    out.set(x, y, z);
+function g(x: number, z: number): number {
+    return -2;
+}
+
+function g1(x: number): number {
+    return 0.1*x**2 - 4;
+}
+
+function g2(x: number): number {
+    return Math.sin(x) + 4;
 }
 
 const EPS = 0.0001;
+const density = 1;
 
 interface VertexInfo {
     vertices: number[],
     indices: number[],
     normals: number[],
     width?: number,
-    depth?: number,
+    depths?: number[],
 }
 
-function surfaceVertexInfo(
-    func: ((x: number, z: number, out: THREE.Vector3) => void),
-    minX: number, maxX: number, minZ: number, maxZ: number
+// (x, y, z) s.t. {y = func(x, z), g1(x) < z < g2(x), a < x < b}
+// TODO handling of mismatched columns is botched
+function generateSurface3D(
+    func: ((x: number, z: number) => number),
+    g1: ((x: number) => number), g2: ((x: number) => number),
+    a: number, b: number,
+    upIsOut?: true,
 ): VertexInfo {
+    // TODO: make these arrays?
+    const vertices: number[] = [];
+    const indices: number[] = [];
+    const normals: number[] = [];
+    const depths: number[] = [];
 
-    const density = 2; // point per one
-    const numX = Math.ceil((maxX - minX) * density) + 1;
-    const numZ = Math.ceil((maxZ - minZ) * density) + 1;
-    const dx = (maxX - minX) / (numX - 1)
-    const dz = (maxZ - minZ) / (numZ - 1)
+    const numX = Math.ceil((b - a) * density) + 1;
+    const dx = (b - a) / (numX - 1);
 
-    const p0 = new THREE.Vector3(), p1 = new THREE.Vector3();
-    const px = new THREE.Vector3(), pz = new THREE.Vector3();
-    const pn = new THREE.Vector3()
-    const vertices = [];
-    const normals = [];
+    // Useful vectors to keep around
+    const p0 = new THREE.Vector3
+    const px = new THREE.Vector3(EPS, 0, 0), pz = new THREE.Vector3(0, 0, EPS);
+    const pn = new THREE.Vector3;
+    
+    const G1 = new Float32Array(numX);
+    const G2 = new Float32Array(numX);
 
-    for (let j = 0; j < numZ; ++j) {
-        const z = minZ + j * dz;
-        for (let i = 0; i < numX; ++i) {
-            const x = minX + i * dx;
-            
-            func(x, z, p0);
+    let lastNumZ = 0;
+    let idx = 0;
+    for (let i = 0; i < numX; ++i) {
+        depths.push(idx); // the index of the first element of every column
 
+        const x = a + i*dx
+        const [c, d] = [g1(x), g2(x)];
+        G1[i] = c;
+        G2[i] = d;
+        // TODO: alternatively sample at regular grid points then add an additional row
+        const numZ = Math.ceil((d - c) * density) + 1;
+        const diff = lastNumZ - numZ; // for seeing if columns are mismatched
+        const dz = (d - c) / (numZ - 1); // check if inf
+        
+        p0.x = x;
+        for (let k = 0; k < numZ; ++k) {
+            const z = c + k*dz;
+            // Get vertex values
+            p0.z = z;
+            p0.y = func(x, z);
             vertices.push(p0.x, p0.y, p0.z);
 
-            func(x+EPS, z, p1);
-            px.subVectors(p1, p0);
-            func(x, z+EPS, p1);
-            pz.subVectors(p1, p0);
-            pn.crossVectors(pz, px).normalize();
-
+            // Get normal values
+            px.y = func(x + EPS, z) - p0.y;
+            pz.y = func(x, z + EPS) - p0.y;
+            pn.crossVectors(pz, px).normalize(); // check upIsOut
             normals.push(pn.x, pn.y, pn.z);
-        }
-    }
 
-    const indices = [];
-    for (let j = 0; j < numZ - 1; ++j) {
-        for (let i = 0; i < numX - 1; ++i) {
-            const a = j * numX + i;
-            const b = j * numX + i + 1;
-            const c = (j+1) * numX + i;
-            const d = (j+1) * numX + i + 1;
-            indices.push(a, c, b); // triangle 1
-            indices.push(b, c, d); // triangle 2
+            // Get indices (+x right, +z down);
+            if (i !== 0 && k !== 0) {
+                if (k < lastNumZ) {
+                    const [botRight, topRight, botLeft, topLeft] = [idx, idx-1, idx-lastNumZ, idx-lastNumZ-1];
+                    indices.push(topLeft, botLeft, topRight);
+                    indices.push(topRight, botLeft, botRight);
+                    if (k === numZ-1) { // check if extra triangles are needed in case vertex shortage
+                        for (let j = 0; j < diff; ++j) {
+                            indices.push(idx, idx-lastNumZ+j, idx-lastNumZ+j+1);
+                        }
+                    }
+                } else { // there is an excess of verts
+                    indices.push(idx, idx-1, idx-k-1);
+                }
+            }
+            
+            ++idx;
         }
+
+        lastNumZ = numZ;
+    }
+    
+    return {
+        vertices: vertices,
+        normals: normals,
+        indices: indices,
+        width: numX,
+        depths: depths,
+    };
+}
+
+// knits together two surfaces that have the same x-z shadow
+function joinSurfaces3D(top: VertexInfo, bot: VertexInfo): VertexInfo {
+    if (top.vertices.length !== bot.vertices.length)
+        throw new Error("Surface mismatch!");
+
+    if (!top.width || !top.depths)
+        throw new Error("Missing width and depth info for surfaces");
+
+    const numPoints = top.vertices.length;
+    const width = top.width;
+    const depths = top.depths;
+        
+    const vertices: number[] = [];
+    const normals: number[] = [];
+    // const indices = top.indices.concat(bot.indices);
+    const indices: number[] = [];
+
+    // left
+    vertices.push(...top.vertices.slice(0, 3*depths[1]));
+    vertices.push(...bot.vertices.slice(0, 3*depths[1]));
+    for (let i = 0; i < depths[1]-1; ++i) {
+        indices.push(i, i+depths[1], i+1);
+        indices.push(i+1, i+depths[1], i+depths[1]+1);
     }
 
     return {
         vertices: vertices,
-        indices: indices,
         normals: normals,
-        width: numX,
-        depth: numZ,
-    }
+        indices: indices,
+    };
 }
 
 const zUp = new THREE.Matrix4(
@@ -107,89 +175,85 @@ function meshFromVertexInfo(info: VertexInfo): THREE.Mesh {
     return mesh;
 }
 
-const [minX, maxX, minZ, maxZ] = [-5, 10, -5, 5];
-const infoTop = surfaceVertexInfo(f, minX, maxX, minZ, maxZ);
-const infoBot = surfaceVertexInfo(g, minX, maxX, minZ, maxZ);
+// const [w, d] = [infoTop.width, infoTop.depth];
+// if (!w || !d)
+//     throw new Error("need width and depth!");
 
-const vertices: number[] = [];
-const indices: number[] = [];
-const normals: number[] = [];
-const [w, d] = [infoTop.width, infoTop.depth];
-if (!w || !d)
-    throw new Error("need width and depth!");
+// for (let i = 0; i < w; ++i) {
+//     const idxBack = 3*i;
+//     const idxFront = 3*w*(d-1) + 3*i;
+//     vertices.push(...infoTop.vertices.slice(idxBack, idxBack+3));
+//     vertices.push(...infoBot.vertices.slice(idxBack, idxBack+3));
+//     vertices.push(...infoTop.vertices.slice(idxFront, idxFront+3));
+//     vertices.push(...infoBot.vertices.slice(idxFront, idxFront+3));
+//     if (i < w - 1) {
+//         const idx = 4*i;
+//         {
+//             const [a, b, c, d] = [idx, idx+1, idx+4, idx+4+1];
+//             indices.push(a, c, b);
+//             indices.push(b, c, d);
+//         }
+//         {
+//             const [a, b, c, d] = [idx+2, idx+3, idx+4+2, idx+4+3];
+//             indices.push(a, b, c);
+//             indices.push(b, d, c);
+//         }
+//     }
+//     normals.push(0, 0, -1);
+//     normals.push(0, 0, -1);
+//     normals.push(0, 0, 1);
+//     normals.push(0, 0, 1);
+// }
 
-for (let i = 0; i < w; ++i) {
-    const idxBack = 3*i;
-    const idxFront = 3*w*(d-1) + 3*i;
-    vertices.push(...infoTop.vertices.slice(idxBack, idxBack+3));
-    vertices.push(...infoBot.vertices.slice(idxBack, idxBack+3));
-    vertices.push(...infoTop.vertices.slice(idxFront, idxFront+3));
-    vertices.push(...infoBot.vertices.slice(idxFront, idxFront+3));
-    if (i < w - 1) {
-        const idx = 4*i;
-        {
-            const [a, b, c, d] = [idx, idx+1, idx+4, idx+4+1];
-            indices.push(a, c, b);
-            indices.push(b, c, d);
-        }
-        {
-            const [a, b, c, d] = [idx+2, idx+3, idx+4+2, idx+4+3];
-            indices.push(a, b, c);
-            indices.push(b, d, c);
-        }
-    }
-    normals.push(0, 0, -1);
-    normals.push(0, 0, -1);
-    normals.push(0, 0, 1);
-    normals.push(0, 0, 1);
-}
+// const skip = vertices.length/3;
+// for (let i = 0; i < d; ++i) {
+//     const idxLeft = 3*w*i;
+//     const idxRight = 3*w*i + 3*(w-1);
+//     vertices.push(...infoTop.vertices.slice(idxLeft, idxLeft+3));
+//     vertices.push(...infoBot.vertices.slice(idxLeft, idxLeft+3));
+//     vertices.push(...infoTop.vertices.slice(idxRight, idxRight+3));
+//     vertices.push(...infoBot.vertices.slice(idxRight, idxRight+3));
+//     if (i < d - 1) {
+//         const idx = skip+4*i;
+//         {
+//             const [a, b, c, d] = [idx, idx+1, idx+4, idx+4+1];
+//             indices.push(a, b, c);
+//             indices.push(b, d, c);
+//         }
+//         {
+//             const [a, b, c, d] = [idx+2, idx+3, idx+4+2, idx+4+3];
+//             indices.push(a, c, b);
+//             indices.push(b, c, d);
+//         }
+//     }
+//     normals.push(-1, 0, 0);
+//     normals.push(-1, 0, 0);
+//     normals.push(1, 0, 0);
+//     normals.push(1, 0, 0);
+// }
 
-const skip = vertices.length/3;
-for (let i = 0; i < d; ++i) {
-    const idxLeft = 3*w*i;
-    const idxRight = 3*w*i + 3*(w-1);
-    vertices.push(...infoTop.vertices.slice(idxLeft, idxLeft+3));
-    vertices.push(...infoBot.vertices.slice(idxLeft, idxLeft+3));
-    vertices.push(...infoTop.vertices.slice(idxRight, idxRight+3));
-    vertices.push(...infoBot.vertices.slice(idxRight, idxRight+3));
-    if (i < d - 1) {
-        const idx = skip+4*i;
-        {
-            const [a, b, c, d] = [idx, idx+1, idx+4, idx+4+1];
-            indices.push(a, b, c);
-            indices.push(b, d, c);
-        }
-        {
-            const [a, b, c, d] = [idx+2, idx+3, idx+4+2, idx+4+3];
-            indices.push(a, c, b);
-            indices.push(b, c, d);
-        }
-    }
-    normals.push(-1, 0, 0);
-    normals.push(-1, 0, 0);
-    normals.push(1, 0, 0);
-    normals.push(1, 0, 0);
-}
+// const infoWall: VertexInfo = {
+//     vertices: vertices,
+//     indices: indices, 
+//     normals: normals,
+// }
 
-const infoWall: VertexInfo = {
-    vertices: vertices,
-    indices: indices, 
-    normals: normals,
-}
+const topInfo = generateSurface3D(f, g1, g2, -5, 5);
+const botInfo = generateSurface3D(g, g1, g2, -5, 5);
+// const volumeInfo = joinSurfaces3D(topInfo, botInfo);
+// scene.add(meshFromVertexInfo(volumeInfo));
+scene.add(meshFromVertexInfo(topInfo));
+scene.add(meshFromVertexInfo(botInfo));
 
-scene.add(meshFromVertexInfo(infoTop));
-scene.add(meshFromVertexInfo(infoBot));
-scene.add(meshFromVertexInfo(infoWall));
+// LIGHTING
+// const ambientLight = new THREE.AmbientLight(0xffffff, 5);
+// scene.add(ambientLight);
 
-
-const ambientLight = new THREE.AmbientLight(0xffffff, 5);
-scene.add(ambientLight);
-
-const pointLight = new THREE.PointLight(0xffffff, 100);
-pointLight.position.x = 0;
-pointLight.position.y = 5;
-pointLight.position.z = 0;
-scene.add(pointLight);
+// const pointLight = new THREE.PointLight(0xffffff, 100);
+// pointLight.position.x = 0;
+// pointLight.position.y = 5;
+// pointLight.position.z = 0;
+// scene.add(pointLight);
 
 camera.position.y = 3;
 camera.position.z = 15;
@@ -199,3 +263,4 @@ function animate() {
     renderer.render(scene, camera);
 }
 renderer.setAnimationLoop(animate);
+// animate();
