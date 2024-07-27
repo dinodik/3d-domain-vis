@@ -1,5 +1,7 @@
 import * as THREE from 'three';
-import { Visualiser } from './Axis';
+import * as mathjs from "mathjs";
+import * as dat from "dat.gui";
+import { Visualiser } from './Visualiser';
 import { BoundsXZ } from './Utils';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 
@@ -28,13 +30,14 @@ const bounds: BoundsXZ = {
 
 const vis = new Visualiser(bounds);
 
-let [width, height] = [400, 300];
+let [width, height] = [window.innerWidth, window.innerHeight];
+// let [width, height] = [400, 300];
 const scene = new THREE.Scene();
 const renderer = new THREE.WebGLRenderer();
 
 // const camera = new THREE.PerspectiveCamera(75, width / height, 0.1, 1000);
 const camera = new THREE.OrthographicCamera( width / - 2, width / 2, height / 2, height / - 2, 1, 1000 );
-camera.zoom = 0.8 * Math.min(width / (vis.maxX - vis.minX), height / (vis.maxY - vis.minY));
+camera.zoom = 0.6 * Math.min(width / (vis.maxX - vis.minX), height / (vis.maxY - vis.minY));
 camera.updateProjectionMatrix();
 camera.updateMatrix();
 
@@ -42,7 +45,7 @@ scene.add( camera );
 const controls = new OrbitControls(camera, renderer.domElement);
 renderer.setSize(width, height);
 scene.frustumCulled = false;
-document.body.appendChild(renderer.domElement);
+document.querySelector("#canvas")?.appendChild(renderer.domElement);
 
 vis.getMeshes().map((mesh) => scene.add(mesh));
 
@@ -68,9 +71,52 @@ vis.getMeshes().forEach((info) => {
 camera.position.y = 3;
 camera.position.z = 15;
 
+// {
+//     const gridHelper = new THREE.GridHelper( 15, 15, 0xffffff, 0x888888);
+//     scene.add( gridHelper );
+// }
+// {
+//     const gridHelper = new THREE.GridHelper( 15, 15, 0xffffff, 0x888888);
+//     gridHelper.rotateZ(Math.PI/2);
+//     scene.add( gridHelper );
+// }
+// {
+//     const gridHelper = new THREE.GridHelper( 15, 15, 0xffffff, 0x888888);
+//     gridHelper.rotateX(Math.PI/2);
+//     scene.add( gridHelper );
+// }
+
+let gui = new dat.GUI({autoPlace: false});
+document.querySelector("#gui")?.append(gui.domElement);
+
+const Controller = {
+    // left: bounds.left,
+    // right: bounds.right,
+    g2: "",
+    g1: "",
+}
+
+gui.add(bounds, "left", -8.47, -0.01).onChange(() => vis.needsUpdate = true);
+gui.add(bounds, "right", 0.01, 9.11).onChange(() => vis.needsUpdate = true);
+gui.add(Controller, "g2").onFinishChange(() => {
+    const node = mathjs.parse(Controller.g2);
+    const code = node.compile()
+
+    // const thingy = mathjs.evaluate("g2(x)=" + Controller.g2);
+    bounds.front = (x: number) => code.evaluate({x: x});
+    vis.needsUpdate = true;
+    // console.log(thingy({x: 2}));
+});
+// gui.add(Controller, "g1")
+
+
 function animate() {
     controls.update();
     renderer.render(scene, camera);
+
+    // vis.bounds.right += 0.1;
+    // vis.needsUpdate = true;
+    vis.update();
 }
 renderer.setAnimationLoop(animate);
 // animate();

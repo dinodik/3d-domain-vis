@@ -1,3 +1,4 @@
+import { i } from "mathjs";
 import * as Utils from "./Utils";
 import { Mesh } from "three";
 
@@ -25,6 +26,7 @@ interface MeshConfig {
     needsUpdate: boolean,
 }
 
+
 export class Visualiser {
     minX: number = -5;
     maxX: number = 5;
@@ -33,14 +35,14 @@ export class Visualiser {
     minZ: number = -5;
     maxZ: number = 5;
 
-    density: number = 2;
+    density: number = 4;
 
-    discreteDomain: Utils.GridXZ;
-    discreteRegion: Utils.GridXZ;
+    discreteDomain!: Utils.GridXZ;
+    discreteRegion!: Utils.GridXZ;
 
     bounds: Utils.BoundsXZ;
 
-    vertexInfos: {
+    vertexInfos!: {
         bounding: GroupVertexInfo,
         region: GroupVertexInfo,
     };
@@ -55,17 +57,14 @@ export class Visualiser {
     top: ((x: number, z: number) => number) = ((x, z) => Math.cos(Math.sqrt(x**2 + z**2)) + 2); // 2*x + 3*z);
     bot: ((x: number, z: number) => number) = ((x, z) => -2); // x + z);
 
+    needsUpdate: boolean = true;
+
+    meshes: Mesh[] = [];
+
     constructor(bounds: Utils.BoundsXZ) {
         this.bounds = bounds;
-        this.discreteDomain = this._discretiseDomain();
-        this.discreteRegion = Utils.discretiseArea(this.bounds, this.density);
-
-        this.vertexInfos = {
-            bounding: this._generateBoundingMeshes(),
-            region: this._generateRegionMeshes(),
-        }
-
         this.meshConfigs = this._initMeshConfig();
+        this.update()
     }
 
     // this is so awful
@@ -176,12 +175,35 @@ export class Visualiser {
 
 
     update(): void {
+        if (!this.needsUpdate)
+            return;
         
+        this.discreteDomain = this._discretiseDomain();
+        this.discreteRegion = Utils.discretiseArea(this.bounds, this.density);
+
+        this.vertexInfos = {
+            bounding: this._generateBoundingMeshes(),
+            region: this._generateRegionMeshes(),
+        }
+
+        // const allInfos = Object.values(this.vertexInfos.bounding).concat(Object.values(this.vertexInfos.region));
+        const allInfos = Object.values(this.vertexInfos.region);
+        const geometries = allInfos.map(info => Utils.geometryFromInfo(info));
+
+        if (this.meshes.length === 0) {
+            this.meshes = geometries.map(geometry => Utils.meshFromGeometry(geometry));
+        } else {
+            this.meshes.forEach((mesh, i) => {
+                mesh.geometry = geometries[i];
+            });
+        }
+
+        this.needsUpdate = false;
     }
 
+
+
     getMeshes(): Mesh[] {
-        // return [Utils.meshFromInfo(this.meshInfos.region.left), Utils.meshFromInfo(this.meshInfos.region.top)];
-        const allInfos = Object.values(this.vertexInfos.bounding).concat(Object.values(this.vertexInfos.region));
-        return allInfos.map(info => Utils.meshFromInfo(info));
+        return this.meshes;
     }
 }

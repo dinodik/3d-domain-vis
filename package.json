@@ -14,11 +14,14 @@
   "author": "",
   "license": "MIT",
   "devDependencies": {
+    "@types/dat.gui": "^0.7.13",
     "@types/three": "^0.166.0",
     "esbuild": "^0.23.0",
     "typescript": "^5.5.3"
   },
   "dependencies": {
+    "dat.gui": "^0.7.9",
+    "mathjs": "^13.0.3",
     "three": "^0.166.1"
   }
 }

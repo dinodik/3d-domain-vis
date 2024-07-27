@@ -177,12 +177,16 @@ export function knitLines(a: Float32Array, b: Float32Array, num?: number, normal
     };
 }
 
-export function meshFromInfo(info: VertexInfo, mat?: THREE.MeshBasicMaterial): THREE.Mesh {
+export function geometryFromInfo(info: VertexInfo): THREE.BufferGeometry {
     // TODO is this being called twice?
     const geometry = new THREE.BufferGeometry();
     geometry.setIndex(info.indices);
     geometry.setAttribute("position", new THREE.BufferAttribute(new Float32Array(info.vertices), 3));
     geometry.setAttribute("normal", new THREE.BufferAttribute(new Float32Array(info.normals), 3));
+    return geometry;
+}
+
+export function meshFromGeometry(geometry: THREE.BufferGeometry): THREE.Mesh {
     // const material = new THREE.MeshBasicMaterial({wireframe: true});
     // const material = new THREE.MeshPhongMaterial({color: 0x550000});
     const material = new THREE.MeshNormalMaterial();

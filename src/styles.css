@@ -1,10 +1,14 @@
 canvas {
-    /* height: 80%;
-    width: 80%; */
+    position: absolute;
     width: 400px;
     height: 300px;
-    position: absolute;
     top: 50%;
     left: 50%;
     transform: translate(-50%, -50%);
+}
+
+#gui {
+    position: absolute;
+    top: 20px;
+    left: 20px;
 }
