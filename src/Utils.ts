@@ -22,6 +22,15 @@ export interface VertexInfo {
     indices: number[],
 };
 
+export interface AxesLimits {
+    minX: number,
+    maxX: number,
+    minY: number,
+    maxY: number,
+    minZ: number,
+    maxZ: number,
+}
+
 export function discretiseArea(bounds: BoundsXZ, density: number): GridXZ {
     const numX = Math.ceil((bounds.right - bounds.left) * density) + 1;
     const dx = (bounds.right - bounds.left) / (numX - 1);

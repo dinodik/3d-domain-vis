@@ -4,6 +4,7 @@ import * as dat from "dat.gui";
 import { Visualiser } from './Visualiser';
 import { BoundsXZ } from './Utils';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import Axes from "./Axes"
 
 function f(x: number, z: number): number {
     return Math.cos(Math.sqrt(x**2 + z**2)) + 2;
@@ -43,6 +44,7 @@ camera.updateMatrix();
 
 scene.add( camera );
 const controls = new OrbitControls(camera, renderer.domElement);
+controls.enableZoom = false;
 renderer.setSize(width, height);
 scene.frustumCulled = false;
 document.querySelector("#canvas")?.appendChild(renderer.domElement);
@@ -52,11 +54,6 @@ vis.getMeshes().map((mesh) => scene.add(mesh));
 vis.getMeshes().forEach((info) => {
     scene.add(info);
 });
-
-// const cube = new THREE.BoxGeometry(1, 1, 1);
-// const mat = new THREE.MeshBasicMaterial({color: 0xff0000})
-// const mesh = new THREE.Mesh(cube, mat);
-// scene.add(mesh);
 
 // LIGHTING
 // const ambientLight = new THREE.AmbientLight(0xffffff, 5);
@@ -70,21 +67,6 @@ vis.getMeshes().forEach((info) => {
 
 camera.position.y = 3;
 camera.position.z = 15;
-
-// {
-//     const gridHelper = new THREE.GridHelper( 15, 15, 0xffffff, 0x888888);
-//     scene.add( gridHelper );
-// }
-// {
-//     const gridHelper = new THREE.GridHelper( 15, 15, 0xffffff, 0x888888);
-//     gridHelper.rotateZ(Math.PI/2);
-//     scene.add( gridHelper );
-// }
-// {
-//     const gridHelper = new THREE.GridHelper( 15, 15, 0xffffff, 0x888888);
-//     gridHelper.rotateX(Math.PI/2);
-//     scene.add( gridHelper );
-// }
 
 let gui = new dat.GUI({autoPlace: false});
 document.querySelector("#gui")?.append(gui.domElement);
@@ -109,6 +91,10 @@ gui.add(Controller, "g2").onFinishChange(() => {
 });
 // gui.add(Controller, "g1")
 
+const axes = new Axes()
+axes.grids.forEach((grid) => {
+    scene.add(grid);
+});
 
 function animate() {
     controls.update();

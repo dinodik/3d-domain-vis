@@ -1,4 +1,3 @@
-import { i } from "mathjs";
 import * as Utils from "./Utils";
 import { Mesh } from "three";
 
