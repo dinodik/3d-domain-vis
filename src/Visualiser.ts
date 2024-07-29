@@ -187,6 +187,7 @@ export class Visualiser {
 
         // const allInfos = Object.values(this.vertexInfos.bounding).concat(Object.values(this.vertexInfos.region));
         const allInfos = Object.values(this.vertexInfos.region);
+
         const geometries = allInfos.map(info => Utils.geometryFromInfo(info));
 
         if (this.meshes.length === 0) {
