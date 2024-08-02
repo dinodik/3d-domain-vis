@@ -1,6 +1,8 @@
 import * as Utils from "./Utils";
 import { Mesh } from "three";
 
+const THIN = 0.01;
+
 interface GroupVertexInfo {
     top: Utils.VertexInfo,
     bot: Utils.VertexInfo,
@@ -60,9 +62,26 @@ export class Visualiser {
 
     meshes: Mesh[] = [];
 
+    state: any;
+    bounds2: any;
+
     constructor(bounds: Utils.BoundsXZ) {
         this.bounds = bounds;
         this.meshConfigs = this._initMeshConfig();
+
+        this.state = {
+            x: 0,
+            y: 0,
+            z: 0,
+        
+            t_f1: THIN,
+            t_f2: THIN,
+            t_g1: THIN,
+            t_g2: THIN,
+            t_a: THIN,
+            t_b: THIN,
+        }
+
         this.update()
     }
 
@@ -130,15 +149,18 @@ export class Visualiser {
     }
 
     _generateRegionMeshes(): GroupVertexInfo {
-        const topInfo = Utils.generateSurface(this.top, this.discreteRegion, true);
-        const botInfo = Utils.generateSurface(this.bot, this.discreteRegion, false);
+        const state = this.state;
+        const top = (x: number, z: number) => state.y + state.t_f2 * (this.top(x, z) - state.y)
+        const bot = (x: number, z: number) => state.y + state.t_f1 * (this.bot(x, z) - state.y)
+        const topInfo = Utils.generateSurface(top, this.discreteRegion, true);
+        const botInfo = Utils.generateSurface(bot, this.discreteRegion, false);
 
         // back/front - harder to extract from top/bot info so just recalculate
         const X = this.discreteRegion.x
-        const minY = this.bot;
-        const maxY = this.top;
-        const backInfo = Utils.wallAlongZ(X, this.bounds.back, minY, maxY)
-        const frontInfo = Utils.wallAlongZ(X, this.bounds.front, minY, maxY);
+        const minY = bot;
+        const maxY = top;
+        const backInfo = Utils.wallAlongZ(X, this.bounds2.back, minY, maxY)
+        const frontInfo = Utils.wallAlongZ(X, this.bounds2.front, minY, maxY);
         
         // left
         let leftInfo: Utils.VertexInfo;
@@ -178,20 +200,34 @@ export class Visualiser {
             return;
         
         this.discreteDomain = this._discretiseDomain();
-        this.discreteRegion = Utils.discretiseArea(this.bounds, this.density);
+
+        const state = this.state;
+        this.bounds2 = {
+            left: state.x + state.t_a*(this.bounds.left - state.x),
+            right: state.x + state.t_b*(this.bounds.right - state.x),
+            back: (x: number) => state.z + state.t_g1 * (this.bounds.back(x) - state.z),
+            front: (x: number) => state.z + state.t_g2 * (this.bounds.front(x) - state.z),
+        } as Utils.BoundsXZ;
+        this.discreteRegion = Utils.discretiseArea(this.bounds2, this.density);
 
         this.vertexInfos = {
             bounding: this._generateBoundingMeshes(),
             region: this._generateRegionMeshes(),
         }
 
-        // const allInfos = Object.values(this.vertexInfos.bounding).concat(Object.values(this.vertexInfos.region));
-        const allInfos = Object.values(this.vertexInfos.region);
+        const allInfos = Object.values(this.vertexInfos.bounding).concat(Object.values(this.vertexInfos.region));
 
         const geometries = allInfos.map(info => Utils.geometryFromInfo(info));
 
         if (this.meshes.length === 0) {
-            this.meshes = geometries.map(geometry => Utils.meshFromGeometry(geometry));
+            geometries.forEach((geometry, i) => {
+                const mesh = Utils.meshFromGeometry(geometry, i < 6);
+                if (i < 6) {
+                    mesh.visible = false;
+                }
+                this.meshes.push(mesh);
+            })
+            // this.meshes = geometries.map(geometry => Utils.meshFromGeometry(geometry));
         } else {
             this.meshes.forEach((mesh, i) => {
                 mesh.geometry = geometries[i];

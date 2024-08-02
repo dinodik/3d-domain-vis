@@ -195,11 +195,15 @@ export function geometryFromInfo(info: VertexInfo): THREE.BufferGeometry {
     return geometry;
 }
 
-export function meshFromGeometry(geometry: THREE.BufferGeometry): THREE.Mesh {
+export function meshFromGeometry(geometry: THREE.BufferGeometry, transparent: boolean = false): THREE.Mesh {
     // const material = new THREE.MeshBasicMaterial({wireframe: true});
     // const material = new THREE.MeshPhongMaterial({color: 0x550000});
-    const material = new THREE.MeshNormalMaterial();
-    // const material = new THREE.MeshNormalMaterial({transparent: true, opacity: 0.5});
+    let material: THREE.Material;
+    if (transparent) {
+        material = new THREE.MeshNormalMaterial({transparent: true, opacity: 0.5});
+    } else {
+        material = new THREE.MeshNormalMaterial();
+    }
     material.side = THREE.DoubleSide;
     const mesh = new THREE.Mesh(geometry, material);
     // mesh.applyMatrix4(zUp);

@@ -22,8 +22,8 @@ function g2(x: number): number {
     return Math.sin(x) + 4;
 }
 
-const a = -3;
-const b = 5;
+const a = -8.47;
+const b = 9.11;
 
 const bounds: BoundsXZ = {
     back: g1,
@@ -81,25 +81,7 @@ document.querySelector("#gui")?.append(gui.domElement);
 // });
 
 const THIN = 0.01;
-const state = {
-    x: 0,
-    y: 0,
-    z: 0,
-
-    t_f1: THIN,
-    t_f2: THIN,
-    t_g1: THIN,
-    t_g2: THIN,
-    t_a: THIN,
-    t_b: THIN,
-
-    f1: "cos(sqrt(x^2 + z^2)) + 2",
-    f2: "-2",
-    g1: "0.1*x^2 - 4",
-    g2: "sin(x) + 4",
-    a: "-8.47",
-    b: "9.11",
-}
+const state = vis.state;
 
 function updateAll() {
     updateX();
@@ -109,42 +91,58 @@ function updateAll() {
 
 // maybe change left right to type () => number
 function updateX() {
-    const a = mathjs.evaluate(state.a);
-    const b = mathjs.evaluate(state.b);
-    vis.bounds.left = state.x + state.t_a*(a - state.x)/2; // TODO REMOVE /2
-    vis.bounds.right = state.x + state.t_b*(b - state.x)/2;
+    vis.bounds.left = mathjs.evaluate(funcState.a);
+    vis.bounds.right = mathjs.evaluate(funcState.b);
     vis.needsUpdate = true;
 }
 
 function updateZ() {
-    const g1Code = mathjs.compile(state.g1)
-    const g2Code = mathjs.compile(state.g2)
-    const g1 = (x: number) => g1Code.evaluate({x: x});
-    const g2 = (x: number) => g2Code.evaluate({x: x});
-    vis.bounds.back = (x: number) => state.z + state.t_g1 * (g1(x) - state.z)
-    vis.bounds.front = (x: number) => state.z + state.t_g2 * (g2(x) - state.z)
+    const g1Code = mathjs.compile(funcState.g1)
+    const g2Code = mathjs.compile(funcState.g2)
+    vis.bounds.back = (x: number) => g1Code.evaluate({x: x});
+    vis.bounds.front = (x: number) => g2Code.evaluate({x: x});
     vis.needsUpdate = true;
 }
 
 function updateY() {
-    const f1Code = mathjs.compile(state.f1)
-    const f2Code = mathjs.compile(state.f2)
-    const f1 = (x: number, z: number) => f1Code.evaluate({x: x, z: z});
-    const f2 = (x: number, z: number) => f2Code.evaluate({x: x, z: z});
-    vis.top = (x: number, z: number) => state.y + state.t_f1 * (f1(x, z) - state.y)
-    vis.bot = (x: number, z: number) => state.y + state.t_f2 * (f2(x, z) - state.y)
+    const f1Code = mathjs.compile(funcState.f1)
+    const f2Code = mathjs.compile(funcState.f2)
+    vis.bot = (x: number, z: number) => f1Code.evaluate({x: x, z: z});
+    vis.top = (x: number, z: number) => f2Code.evaluate({x: x, z: z});
     vis.needsUpdate = true;
 }
 
-gui.add(state, "f2").onFinishChange(updateY);
-gui.add(state, "f1").onFinishChange(updateY);
-gui.add(state, "g2").onFinishChange(updateZ);
-gui.add(state, "g1").onFinishChange(updateZ);
-gui.add(state, "b").onFinishChange(updateX);
-gui.add(state, "a").onFinishChange(updateX);
-gui.add(state, "x", vis.minX, vis.maxX, 0.01).onChange(updateX);
-gui.add(state, "y", vis.minX, vis.maxX, 0.01).onChange(updateY);
-gui.add(state, "z", vis.minX, vis.maxX, 0.01).onChange(updateZ);
+const funcState = {
+    f2: "cos(sqrt(x^2 + z^2)) + 4",
+    f1: "-2",
+    g2: "sin(x) + 4",
+    g1: "0.1*x^2 - 4",
+    b: "5",// "9.11",
+    a: "-5"// "-8.47",
+}
+
+// const funcState = {
+//     f2: "8-x^2-z^2",
+//     f1: "x^2 + 3*z^2",
+//     g2: "sqrt(2-0.5*x^2)",
+//     g1: "-sqrt(2-0.5*x^2)",
+//     b: "1.99",// "9.11",
+//     a: "-1.99"// "-8.47",
+// }
+
+function update() {
+    vis.needsUpdate = true;
+}
+
+gui.add(funcState, "f2").onFinishChange(updateY);
+gui.add(funcState, "f1").onFinishChange(updateY);
+gui.add(funcState, "g2").onFinishChange(updateZ);
+gui.add(funcState, "g1").onFinishChange(updateZ);
+gui.add(funcState, "b").onFinishChange(updateX);
+gui.add(funcState, "a").onFinishChange(updateX);
+gui.add(state, "x", vis.bounds.left, vis.bounds.right, 0.01).onChange(update);
+gui.add(state, "y", vis.minX, vis.maxX, 0.01).onChange(update);
+gui.add(state, "z", vis.minX, vis.maxX, 0.01).onChange(update);
 // gui.add(state, "z", vis.minX, vis.maxX, 0.01).onChange(leftRight);
 
 const folders = {
@@ -153,12 +151,20 @@ const folders = {
     triple: gui.addFolder("Integrate along x"),
 }
 
-folders.single.add(state, "t_f2", THIN, 1, 0.01).onChange(updateY);
-folders.single.add(state, "t_f1", THIN, 1, 0.01).onChange(updateY);
-folders.double.add(state, "t_g2", THIN, 1, 0.01).onChange(updateZ);
-folders.double.add(state, "t_g1", THIN, 1, 0.01).onChange(updateZ);
-folders.triple.add(state, "t_b", THIN, 1, 0.01).onChange(updateX);
-folders.triple.add(state, "t_a", THIN, 1, 0.01).onChange(updateX);
+folders.single.add(state, "t_f2", THIN, 1, 0.01).onChange(update);
+folders.single.add(state, "t_f1", THIN, 1, 0.01).onChange(update);
+folders.double.add(state, "t_g2", THIN, 1, 0.01).onChange(update);
+folders.double.add(state, "t_g1", THIN, 1, 0.01).onChange(update);
+folders.triple.add(state, "t_b", THIN, 1, 0.01).onChange(update);
+folders.triple.add(state, "t_a", THIN, 1, 0.01).onChange(update);
+
+const hidden = gui.addFolder("Visible");
+hidden.add(vis.meshes[0], "visible").onChange(update).name("top");
+hidden.add(vis.meshes[1], "visible").onChange(update).name("bot");
+hidden.add(vis.meshes[2], "visible").onChange(update).name("back");
+hidden.add(vis.meshes[3], "visible").onChange(update).name("front");
+hidden.add(vis.meshes[4], "visible").onChange(update).name("left");
+hidden.add(vis.meshes[5], "visible").onChange(update).name("right");
 
 // const thing = gui.add(bounds, "left", 8.47, -0.01).onChange(() => vis.needsUpdate = true);
 
