@@ -130,6 +130,10 @@ const funcState = {
 //     a: "-1.99"// "-8.47",
 // }
 
+const temp = {
+    density: vis.density,
+}
+
 function update() {
     vis.needsUpdate = true;
 }
@@ -143,7 +147,7 @@ gui.add(funcState, "a").onFinishChange(updateX);
 gui.add(state, "x", vis.bounds.left, vis.bounds.right, 0.01).onChange(update);
 gui.add(state, "y", vis.minX, vis.maxX, 0.01).onChange(update);
 gui.add(state, "z", vis.minX, vis.maxX, 0.01).onChange(update);
-// gui.add(state, "z", vis.minX, vis.maxX, 0.01).onChange(leftRight);
+gui.add(temp, "density", 0.1, 4, 0.01).onChange(() => {vis.density = temp.density; update()});
 
 const folders = {
     single: gui.addFolder("Integrate along y"),

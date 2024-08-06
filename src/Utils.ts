@@ -36,9 +36,9 @@ export function discretiseArea(bounds: BoundsXZ, density: number): GridXZ {
     const dx = (bounds.right - bounds.left) / (numX - 1);
 
     const X = new Float32Array(numX);
-    const Z = [];
+    const Z: number[] = [];
     const numsZ = new Int32Array(numX);
-    const indices = [];
+    const indices: number[] = [];
 
     let idx = 0;
     for (let i = 0; i < numX; ++i) {
@@ -199,11 +199,13 @@ export function meshFromGeometry(geometry: THREE.BufferGeometry, transparent: bo
     // const material = new THREE.MeshBasicMaterial({wireframe: true});
     // const material = new THREE.MeshPhongMaterial({color: 0x550000});
     let material: THREE.Material;
+
     if (transparent) {
         material = new THREE.MeshNormalMaterial({transparent: true, opacity: 0.5});
     } else {
         material = new THREE.MeshNormalMaterial();
     }
+
     material.side = THREE.DoubleSide;
     const mesh = new THREE.Mesh(geometry, material);
     // mesh.applyMatrix4(zUp);

@@ -36,7 +36,7 @@ export class Visualiser {
     minZ: number = -5;
     maxZ: number = 5;
 
-    density: number = 4;
+    density: number = 1;
 
     discreteDomain!: Utils.GridXZ;
     discreteRegion!: Utils.GridXZ;
@@ -74,12 +74,12 @@ export class Visualiser {
             y: 0,
             z: 0,
         
-            t_f1: THIN,
-            t_f2: THIN,
-            t_g1: THIN,
-            t_g2: THIN,
-            t_a: THIN,
-            t_b: THIN,
+            t_f1: 1, //THIN,
+            t_f2: 1, //THIN,
+            t_g1: 1, //THIN,
+            t_g2: 1, //THIN,
+            t_a: 1, //THIN,
+            t_b: 1, //THIN,
         }
 
         this.update()

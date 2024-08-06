@@ -1,14 +1,61 @@
-canvas {
+/* canvas {
     position: absolute;
     width: 400px;
     height: 300px;
     top: 50%;
     left: 50%;
     transform: translate(-50%, -50%);
+} */
+
+.canvas-container {
+    position: fixed;
+    width: 100%;
+    height: 100%;
 }
 
-#gui {
+.panel {
     position: absolute;
     top: 20px;
     left: 20px;
+    padding: 1%;
+    outline: auto;
+    background-color: aliceblue;
+}
+
+.orderPanel {
+    text-align: center;
+}
+
+.orderList {
+    display: inline-flex;
+    flex-direction: row;
+}
+
+.domainList {
+    display: flex;
+    flex-direction: column;
+}
+
+.domainRow {
+    display: flex;
+    flex-direction: row;
+    margin-top: 10px;
+    margin-bottom: 10px;
+}
+
+.domainRow .mq-editable-field {
+    border: unset;
+    border-bottom: 1.5px solid gray;
+    margin-left: 25px;
+    margin-right: 25px;
+}
+
+.equationEditor {
+    display: flex !important;
+    width: 100px;
+    transform: translate(0, -25%);
+}
+
+.equationEditor .mq-root-block {
+    align-self: flex-end;
 }
