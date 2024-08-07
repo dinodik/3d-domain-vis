@@ -1,39 +1,28 @@
-import * as THREE from 'three';
+import { Vector3 } from "three";
 
-const EPS = 0.0001;
+const EPS = 0.001;
 
-export interface BoundsXZ {
-    back: ((x: number) => number), // z = g1(x);
-    front: ((x: number) => number), // z = g2(x);
-    left: number,
-    right: number,
+export const interpolateDomain = (domain: Domain, ranges: Ranges): Domain => {
+    return {
+        y: [
+            (x, z) => ranges.y[0]*domain.y[1](x, z) + (1-ranges.y[0])*domain.y[0](x, z),
+            (x, z) => ranges.y[1]*domain.y[1](x, z) + (1-ranges.y[1])*domain.y[0](x, z),
+        ],
+        z: [
+            (x) => ranges.z[0]*domain.z[1](x) + (1-ranges.z[0])*domain.z[0](x),
+            (x) => ranges.z[1]*domain.z[1](x) + (1-ranges.z[1])*domain.z[0](x),
+        ],
+        x: [
+            () => ranges.x[0]*domain.x[1]() + (1-ranges.x[0])*domain.x[0](),
+            () => ranges.x[1]*domain.x[1]() + (1-ranges.x[1])*domain.x[0](),
+        ],
+    }
 };
 
-export interface GridXZ {
-    x: Float32Array, // discretised x-values
-    z: Float32Array, // grid of discretised z-values
-    numsZ: Int32Array, // length of z-array for each column along x // index of the first z-values in each column along x
-    indices: number[], // for building mesh
-};
-
-export interface VertexInfo {
-    vertices: Float32Array,
-    normals: Float32Array,
-    indices: number[],
-};
-
-export interface AxesLimits {
-    minX: number,
-    maxX: number,
-    minY: number,
-    maxY: number,
-    minZ: number,
-    maxZ: number,
-}
-
-export function discretiseArea(bounds: BoundsXZ, density: number): GridXZ {
-    const numX = Math.ceil((bounds.right - bounds.left) * density) + 1;
-    const dx = (bounds.right - bounds.left) / (numX - 1);
+const createGridXZ = (domain: Domain, density: number = 4): GridXZ => {
+    const [left, right] = [domain.x[0](), domain.x[1]()];
+    const numX = Math.ceil(Math.abs(right - left) * density) + 1;
+    const dx = (right - left) / (numX - 1);
 
     const X = new Float32Array(numX);
     const Z: number[] = [];
@@ -42,11 +31,11 @@ export function discretiseArea(bounds: BoundsXZ, density: number): GridXZ {
 
     let idx = 0;
     for (let i = 0; i < numX; ++i) {
-        const x = bounds.left + i*dx;
+        const x = left + i*dx;
         X[i] = x;
         
-        const [back, front] = [bounds.back(x), bounds.front(x)];
-        const numZ = Math.ceil((front - back) * density) + 1; // check if negative
+        const [back, front] = [domain.z[0](x), domain.z[1](x)];
+        const numZ = Math.ceil(Math.abs(front - back) * density) + 1; // check if negative
         numsZ[i] = numZ;
         const dz = (front - back) / (numZ - 1); // check if inf
 
@@ -75,26 +64,29 @@ export function discretiseArea(bounds: BoundsXZ, density: number): GridXZ {
     }
 
     return {
-        x: X,
-        z: new Float32Array(Z),
+        X: X,
+        Z: new Float32Array(Z),
         numsZ: numsZ,
         indices: indices,
     };
 }
 
-export function generateSurface(func: (x: number, z: number) => number, grid: GridXZ, upIsOut: boolean = true): VertexInfo {
+const createSurface = (
+    func: (x: number, z: number) => number,
+    grid: GridXZ,
+): MeshInfo => {
     const vertices: number[] = [];
     const normals: number[] = [];
-
-    // Useful vectors to keep around
-    const p0 = new THREE.Vector3
-    const px = new THREE.Vector3(EPS, 0, 0), pz = new THREE.Vector3(0, 0, EPS);
-    const pn = new THREE.Vector3;
+    
+    const p0 = new Vector3;
+    const px = new Vector3(EPS, 0, 0), pz = new Vector3(0, 0, EPS);
+    const pn = new Vector3;
 
     let zStart = 0;
-    grid.x.forEach((x, i) => {
+    let idx = 0;
+    grid.X.forEach((x, i) => {
         for (let k = 0; k < grid.numsZ[i]; ++k) {
-            const z = grid.z[zStart + k];
+            const z = grid.Z[zStart + k];
 
             // Get vertex values
             p0.x = x;
@@ -111,6 +103,7 @@ export function generateSurface(func: (x: number, z: number) => number, grid: Gr
             //     pn.crossVectors(px, pz).normalize();
             // }
             normals.push(pn.x, pn.y, pn.z);
+            idx++;
         }
         zStart += grid.numsZ[i];
     });
@@ -120,65 +113,21 @@ export function generateSurface(func: (x: number, z: number) => number, grid: Gr
         normals: new Float32Array(normals),
         indices: grid.indices,
     };
-}
+};
 
-export function wallAlongZ(
-    values: Float32Array,
-    curve: (x: number) => number,
-    minY: (x: number, y: number) => number,
-    maxY: (x: number, y: number) => number,
-): VertexInfo {
-    const X = values;
-    const Z = X.map(curve);
-    const topVerts = new Float32Array(3 * X.length);
-    const botVerts = new Float32Array(3 * X.length);
-    for (let i = 0; i < X.length; ++i) {
-        const [x, z] = [X[i], Z[i]];
-        const idx = 3*i;
-        
-        topVerts.set([x, maxY(x, z), z], idx);
-        botVerts.set([x, minY(x, z), z], idx);
-    }
-    const normals = normalToExtrudedCurve(values, curve);
-    return knitLines(topVerts, botVerts, X.length, normals);
-}
-
-export function normalToExtrudedCurve(values: Float32Array, line: (x: number) => number, dir: THREE.Vector3 = new THREE.Vector3(0, 1, 0)): Float32Array {
-    // this can be heavily optimised
-    const normals = new Float32Array(3 * values.length);
-
-    const tangent = new THREE.Vector3(0, 0, 0);
-    const normal = new THREE.Vector3(0, 0, 0);
-    values.forEach((x, i) => {
-        tangent.x = EPS;
-        tangent.z = line(x+EPS) - line(x);
-        normal.crossVectors(tangent, dir).normalize(); // (d.y-t.z, t.z*d.x - t.x*d.z, t.x*d.y)
-        normals.set(normal.toArray(), 3*i);
-    });
-    return normals;
-}
-
-export function knitLines(a: Float32Array, b: Float32Array, num?: number, normals?: Float32Array): VertexInfo {
-    if (!num) {
-        num = Math.floor(a.length / 3);
-    }
-
-    if (a.length !== b.length || b.length !== 3*num) {
-        throw new Error("Input to knitLines must be the same length, i.e. 3 times the number of vertices")
-    }
-
-    if (!normals) {
-        normals = new Float32Array();
-    }
-
-    const vertices = Float32Array.of(...a, ...b);
+const createKnittedSurface = (
+    verts1: Float32Array,
+    verts2: Float32Array,
+    normals: Float32Array,
+): MeshInfo => {
+    const num = Math.floor(verts1.length / 3);
+    const vertices = Float32Array.of(...verts1, ...verts2);
     normals = Float32Array.of(...normals, ...normals);
     const indices: number[] = [];
     for (let i = 0; i < num-1; ++i) {
         indices.push(i, i+1, i+num);
         indices.push(i+num, i+1, i+num+1);
     }
-    
     return {
         vertices: vertices,
         normals: normals,
@@ -186,28 +135,51 @@ export function knitLines(a: Float32Array, b: Float32Array, num?: number, normal
     };
 }
 
-export function geometryFromInfo(info: VertexInfo): THREE.BufferGeometry {
-    // TODO is this being called twice?
-    const geometry = new THREE.BufferGeometry();
-    geometry.setIndex(info.indices);
-    geometry.setAttribute("position", new THREE.BufferAttribute(new Float32Array(info.vertices), 3));
-    geometry.setAttribute("normal", new THREE.BufferAttribute(new Float32Array(info.normals), 3));
-    return geometry;
+
+const createVerticalSurface = (
+    lowerY: (x: number, z: number) => number,
+    upperY: (x: number, z: number) => number,
+    curve: (u: number) => [number, number],
+    U: Float32Array,
+): MeshInfo => {
+    const upperVerts = new Float32Array(3 * U.length);
+    const lowerVerts = new Float32Array(3 * U.length);
+    const normals = new Float32Array(3 * U.length);
+
+    const UP = new Vector3(0, 1, 0);
+    const tangent = new Vector3(0, 0, 0);
+    const normal = new Vector3(0, 0, 0);
+
+    U.forEach((u, i) => {
+        const idx = 3*i
+        const [x, z] = curve(u);
+        upperVerts.set([x, upperY(x, z), z], idx);
+        lowerVerts.set([x, lowerY(x, z), z], idx);
+
+        const [x1, z1] = curve(u + EPS);
+        tangent.x = x1 - x; tangent.z = z1 - z;
+        normal.crossVectors(tangent, UP).normalize();
+        normals.set(normal.toArray(), idx);
+    });
+    return createKnittedSurface(upperVerts, lowerVerts, normals);
 }
 
-export function meshFromGeometry(geometry: THREE.BufferGeometry, transparent: boolean = false): THREE.Mesh {
-    // const material = new THREE.MeshBasicMaterial({wireframe: true});
-    // const material = new THREE.MeshPhongMaterial({color: 0x550000});
-    let material: THREE.Material;
+export const createVolume = (domain: Domain): MeshInfo[] => {
+    const grid = createGridXZ(domain);
 
-    if (transparent) {
-        material = new THREE.MeshNormalMaterial({transparent: true, opacity: 0.5});
-    } else {
-        material = new THREE.MeshNormalMaterial();
-    }
+    const yMesh = domain.y.map(func => createSurface(func, grid));
+    const zMesh = domain.z.map(func => createVerticalSurface(
+        ...domain.y,
+        x => [x, func(x)],
+        grid.X,
+    ));
 
-    material.side = THREE.DoubleSide;
-    const mesh = new THREE.Mesh(geometry, material);
-    // mesh.applyMatrix4(zUp);
-    return mesh;
-}
+    const num = grid.numsZ.at(-1);
+    if (!num) throw new Error("The mesh has zero depth, there should at least be one vertex");
+    const xMesh = domain.x.map((func, i) => createVerticalSurface(
+        ...domain.y,
+        z => [func(), z],
+        i === 0 ? grid.Z.slice(0, grid.numsZ[0]) : grid.Z.slice(-num),
+    ));
+    return [...yMesh, ...zMesh, ...xMesh];
+};

@@ -27,8 +27,8 @@ export default function OrderPanel({order, setOrder}: {order: Order, setOrder: (
         if (!over)
             return
         if (active.id !== over.id) {
-            const oldIdx = order.indexOf(active.id.toString());
-            const newIdx = order.indexOf(over.id.toString());
+            const oldIdx = order.indexOf(active.id.toString() as XYZ);
+            const newIdx = order.indexOf(over.id.toString() as XYZ);
             setOrder(arrayMove(order, oldIdx, newIdx) as Order);
         }
     }

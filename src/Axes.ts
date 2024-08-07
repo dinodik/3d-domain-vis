@@ -1,4 +1,4 @@
-import { AxesLimits } from "./Utils";
+import { AxesLimits } from "./Utils-old";
 import { BufferGeometry, Color, Float32BufferAttribute, LineBasicMaterial, LineSegments, Vector3 } from "three";
 
 const size: number = 10; // on screen

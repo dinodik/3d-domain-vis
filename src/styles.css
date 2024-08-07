@@ -7,8 +7,17 @@
     transform: translate(-50%, -50%);
 } */
 
-.canvas-container {
-    position: fixed;
+html, body {
+    margin: 0;
+    height: 100%;
+}
+
+#root {
+    width: 100%;
+    height: 100%;
+}
+
+.main {
     width: 100%;
     height: 100%;
 }

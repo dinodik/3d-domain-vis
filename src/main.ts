@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import * as mathjs from "mathjs";
 import * as dat from "dat.gui";
 import { Visualiser } from './Visualiser';
-import { BoundsXZ } from './Utils';
+import { BoundsXZ } from './Utils-old';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import Axes from "./Axes"
 

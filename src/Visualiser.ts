@@ -1,4 +1,4 @@
-import * as Utils from "./Utils";
+import * as Utils from "./Utils-old";
 import { Mesh } from "three";
 
 const THIN = 0.01;
