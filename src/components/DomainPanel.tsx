@@ -1,46 +1,44 @@
-import React, { useState } from "react";
-import EquationEditor from "./EquationEditor"
+import React, { useMemo, useState } from "react";
+import { ExpressionBox } from "./ExpressionBox"
 import RangeSlider from "./RangeSlider"
+import { isSymbolNode, MathNode, parse, SymbolNode } from "mathjs";
 
-interface DomainProps {
+const renderOrder: Order = ['y', 'z', 'x'];
+
+
+interface DomainPanelProps {
     order: Order,
-    ranges: ExprRange3,
-    rangeScales: [Vec2, Vec2, Vec2],
-    setRanges: (ranges: ExprRange3) => void,
-    setRangeScales: (rangeScales: [Vec2, Vec2, Vec2]) => void,
+    ranges: Ranges,
+    setRanges: (ranges: Ranges) => void,
+    onCodeChange: (axis: XYZ, isUpper: boolean, tex: string) => void,
+    initTex: Record<XYZ, string[]>,
 };
 
-export default function DomainPanel({order, ranges, rangeScales, setRanges, setRangeScales}: DomainProps) {
-    const [exprs, setExprs] = useState<Expression[]>(ranges.flat());
-    const rows = order.map((coord, i) => (
-        <div className="domainRow" key={coord}>
-            <EquationEditor expr={exprs[2*i+0]} onChange={((newExpr: Expression) => handleExprChange(2*i+0, newExpr))}/>
-            <RangeSlider values={rangeScales[i]} setValues={(newRangeScale: Vec2) => handleRangeScaleChange(i, newRangeScale)} />
-            <EquationEditor expr={exprs[2*i+1]} onChange={((newExpr: Expression) => handleExprChange(2*i+1, newExpr))} left={false}/>
+export const DomainPanel: React.FC<DomainPanelProps> = ({
+    order,
+    ranges, setRanges,
+    onCodeChange,
+    initTex,
+}) => {
+    const handleRanges = (axis: XYZ, newRange: [number, number]) => {
+        setRanges({...ranges, [renderOrder[order.indexOf(axis)]]: newRange} as Ranges);
+    };
+
+    const rows = order.map((axis, i) => (
+        <div className="domainRow" key={axis}>
+            <ExpressionBox
+                initialTex={initTex[axis][0]}
+                onChange={((newTex: string) => onCodeChange(axis, false, newTex))}
+                rightAlign={true} />
+            <RangeSlider values={ranges[renderOrder[i]]} setValues={(newRange: [number, number]) => handleRanges(axis, newRange)} />
+            <ExpressionBox
+                initialTex={initTex[axis][1]}
+                onChange={((newTex: string) => onCodeChange(axis, true, newTex))}
+            />
         </div>
     ));
 
     return (
         <div className="domainList">{rows}</div>
     );
-
-    function handleExprChange(idx: number, newExpr: Expression) {
-        setExprs(exprs.map((expr, i) => {
-            if (i === idx) {
-                return newExpr;
-            } else {
-                return expr;
-            }
-        }));
-    }
-
-    function handleRangeScaleChange(idx: number, newRangeScale: Vec2) {
-        setRangeScales(rangeScales.map((rangeScale, i) => {
-            if (i === idx) {
-                return newRangeScale;
-            } else {
-                return rangeScale;
-            }
-        }) as [Vec2, Vec2, Vec2]);
-    }
 }

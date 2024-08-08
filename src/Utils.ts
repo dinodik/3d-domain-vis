@@ -1,4 +1,5 @@
 import { Vector3 } from "three";
+import { mx_bilerp_1 } from "three/examples/jsm/nodes/materialx/lib/mx_noise.js";
 
 const EPS = 0.001;
 
@@ -19,7 +20,7 @@ export const interpolateDomain = (domain: Domain, ranges: Ranges): Domain => {
     }
 };
 
-const createGridXZ = (domain: Domain, density: number = 4): GridXZ => {
+const createGridXZ = (domain: Domain, density: number = 2): GridXZ => {
     const [left, right] = [domain.x[0](), domain.x[1]()];
     const numX = Math.ceil(Math.abs(right - left) * density) + 1;
     const dx = (right - left) / (numX - 1);
@@ -28,6 +29,7 @@ const createGridXZ = (domain: Domain, density: number = 4): GridXZ => {
     const Z: number[] = [];
     const numsZ = new Int32Array(numX);
     const indices: number[] = [];
+    const reverseIndices: number[] = [];
 
     let idx = 0;
     for (let i = 0; i < numX; ++i) {
@@ -37,8 +39,8 @@ const createGridXZ = (domain: Domain, density: number = 4): GridXZ => {
         const [back, front] = [domain.z[0](x), domain.z[1](x)];
         const numZ = Math.ceil(Math.abs(front - back) * density) + 1; // check if negative
         numsZ[i] = numZ;
-        const dz = (front - back) / (numZ - 1); // check if inf
-
+        const dz = numZ === 1 ? 0 : (front - back) / (numZ - 1);
+        
         for (let k = 0; k < numZ; ++k) {
             const z = back + k*dz;
             Z.push(z);
@@ -49,13 +51,17 @@ const createGridXZ = (domain: Domain, density: number = 4): GridXZ => {
                     const [botRight, topRight, botLeft, topLeft] = [idx, idx-1, idx-lastNumZ, idx-lastNumZ-1];
                     indices.push(topLeft, botLeft, topRight);
                     indices.push(topRight, botLeft, botRight);
+                    reverseIndices.push(botLeft, topLeft, topRight);
+                    reverseIndices.push(botLeft, topRight, botRight);
                     if (k === numZ-1) { // check if extra triangles are needed in case vertex shortage
                         for (let j = 0; j < numsZ[i-1] - numZ; ++j) {
                             indices.push(idx, idx-lastNumZ+j, idx-lastNumZ+j+1);
+                            reverseIndices.push(idx-lastNumZ+j, idx, idx-lastNumZ+j+1);
                         }
                     }
                 } else { // there is an excess of verts
                     indices.push(idx, idx-1, idx-k-1);
+                    reverseIndices.push(idx-1, idx, idx-k-1);
                 }
             }
 
@@ -68,12 +74,14 @@ const createGridXZ = (domain: Domain, density: number = 4): GridXZ => {
         Z: new Float32Array(Z),
         numsZ: numsZ,
         indices: indices,
+        reverseIndices: reverseIndices,
     };
 }
 
 const createSurface = (
     func: (x: number, z: number) => number,
     grid: GridXZ,
+    reverseTrianges: boolean = false,
 ): MeshInfo => {
     const vertices: number[] = [];
     const normals: number[] = [];
@@ -111,7 +119,7 @@ const createSurface = (
     return {
         vertices: new Float32Array(vertices),
         normals: new Float32Array(normals),
-        indices: grid.indices,
+        indices: reverseTrianges ? grid.reverseIndices : grid.indices,
     };
 };
 
@@ -119,14 +127,21 @@ const createKnittedSurface = (
     verts1: Float32Array,
     verts2: Float32Array,
     normals: Float32Array,
+    reverseTriangles: boolean = false,
 ): MeshInfo => {
     const num = Math.floor(verts1.length / 3);
     const vertices = Float32Array.of(...verts1, ...verts2);
     normals = Float32Array.of(...normals, ...normals);
     const indices: number[] = [];
     for (let i = 0; i < num-1; ++i) {
-        indices.push(i, i+1, i+num);
-        indices.push(i+num, i+1, i+num+1);
+        if (reverseTriangles) {
+            indices.push(i, i+num, i+1);
+            indices.push(i+1, i+num, i+num+1);
+        }
+        else {
+            indices.push(i, i+1, i+num);
+            indices.push(i+num, i+1, i+num+1);
+        }
     }
     return {
         vertices: vertices,
@@ -141,12 +156,14 @@ const createVerticalSurface = (
     upperY: (x: number, z: number) => number,
     curve: (u: number) => [number, number],
     U: Float32Array,
+    reverseTriangles: boolean = false,
 ): MeshInfo => {
     const upperVerts = new Float32Array(3 * U.length);
     const lowerVerts = new Float32Array(3 * U.length);
     const normals = new Float32Array(3 * U.length);
 
     const UP = new Vector3(0, 1, 0);
+    // UP.y = invertNormal ? -1 : 1;
     const tangent = new Vector3(0, 0, 0);
     const normal = new Vector3(0, 0, 0);
 
@@ -161,17 +178,19 @@ const createVerticalSurface = (
         normal.crossVectors(tangent, UP).normalize();
         normals.set(normal.toArray(), idx);
     });
-    return createKnittedSurface(upperVerts, lowerVerts, normals);
+    return createKnittedSurface(upperVerts, lowerVerts, normals, reverseTriangles);
 }
 
 export const createVolume = (domain: Domain): MeshInfo[] => {
     const grid = createGridXZ(domain);
 
-    const yMesh = domain.y.map(func => createSurface(func, grid));
-    const zMesh = domain.z.map(func => createVerticalSurface(
+    const yMesh = domain.y.map((func, i) => createSurface(func, grid, i === 0 ? true : false));
+
+    const zMesh = domain.z.map((func, i) => createVerticalSurface(
         ...domain.y,
         x => [x, func(x)],
         grid.X,
+        i === 1 ? true : false,
     ));
 
     const num = grid.numsZ.at(-1);
@@ -180,6 +199,8 @@ export const createVolume = (domain: Domain): MeshInfo[] => {
         ...domain.y,
         z => [func(), z],
         i === 0 ? grid.Z.slice(0, grid.numsZ[0]) : grid.Z.slice(-num),
+        i === 0 ? true : false,
     ));
+
     return [...yMesh, ...zMesh, ...xMesh];
 };

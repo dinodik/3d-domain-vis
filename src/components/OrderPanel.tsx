@@ -4,8 +4,25 @@ import { DndContext, DragEndEvent } from "@dnd-kit/core";
 import { arrayMove, horizontalListSortingStrategy, SortableContext } from "@dnd-kit/sortable";
 import SortableBox from "./SortableBox"
 
-addStyles();
-export default function OrderPanel({order, setOrder}: {order: Order, setOrder: (order: Order) => void}) {
+interface OrderPanelProps {
+    order: Order,
+    onChange: (order: Order) => void,
+}
+
+export const OrderPanel: React.FC<OrderPanelProps> = ({
+    order, onChange
+}) => {
+    const handleDragEnd = (event: DragEndEvent): void => {
+        const {active, over} = event;
+        if (!over)
+            return
+        if (active.id !== over.id) {
+            const oldIdx = order.indexOf(active.id.toString() as XYZ);
+            const newIdx = order.indexOf(over.id.toString() as XYZ);
+            onChange(arrayMove(order, oldIdx, newIdx) as Order);
+        }
+    }
+
     return (
         <div className="orderPanel">
         <StaticMathField>{"\\int_{\\ }^{\\ }".repeat(3)}</StaticMathField>
@@ -21,15 +38,4 @@ export default function OrderPanel({order, setOrder}: {order: Order, setOrder: (
         </DndContext>
         </div>
     );
-
-    function handleDragEnd(event: DragEndEvent): void {
-        const {active, over} = event;
-        if (!over)
-            return
-        if (active.id !== over.id) {
-            const oldIdx = order.indexOf(active.id.toString() as XYZ);
-            const newIdx = order.indexOf(over.id.toString() as XYZ);
-            setOrder(arrayMove(order, oldIdx, newIdx) as Order);
-        }
-    }
-}
+};

@@ -1,25 +1,14 @@
 
-type Vec2 = [number, number];
-type Vec3 = [number, number, number];
-
-type TeX = string;
-
+// type Expression = {
+//     code: string
+//     valid: boolean,
+// }
 type Expression = string;
-type ExprRange = [Expression, Expression];
-type ExprRange3 = [ExprRange, ExprRange, ExprRange];
-
+type Expressions = Record<XYZ, [Expression, Expression]>;
 
 type XYZ = 'x' | 'y' | 'z';
 type Order = [XYZ, XYZ, XYZ];
 type Ranges = Record<XYZ, [number, number]>;
-// type Domain = {
-//     top:   (x: number, z: number) => number,
-//     bot:   (x: number, z: number) => number,
-//     front: (x: number) => number,
-//     back:  (x: number) => number,
-//     left:  () => number,
-//     right: () => number,
-// };
 type Domain = {
     y: [(x: number, z: number) => number, (x: number, z: number) => number],
     z: [(x: number) => number, (x: number) => number]
@@ -31,6 +20,7 @@ type GridXZ = {
     Z: Float32Array, // 2D compressed
     numsZ: Int32Array,
     indices: number[],
+    reverseIndices: number[],
 }
 
 type MeshConfig = {
